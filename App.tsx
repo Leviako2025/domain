@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import DomainCard from './components/DomainCard';
+import AuthModal from './components/AuthModal';
 import { generateIdentities } from './services/gemini';
-import { IdentityIdea, AppState } from './types';
+import { IdentityIdea, AppState, User } from './types';
 import { Search, Wand2, AlertCircle, Loader, Heart } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -11,21 +13,56 @@ const App: React.FC = () => {
   const [results, setResults] = useState<IdentityIdea[]>([]);
   const [error, setError] = useState<string | null>(null);
   
-  // Initialize saved items from localStorage
-  const [savedIdentities, setSavedIdentities] = useState<IdentityIdea[]>(() => {
-    try {
-      const saved = localStorage.getItem('namer_saved_ids');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      console.error("Failed to load saved identities", e);
-      return [];
-    }
-  });
+  // Auth State
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  // Persist to localStorage whenever savedIdentities changes
+  // Load User on mount
   useEffect(() => {
-    localStorage.setItem('namer_saved_ids', JSON.stringify(savedIdentities));
-  }, [savedIdentities]);
+      const storedUser = localStorage.getItem('namer_user');
+      if (storedUser) {
+          try {
+              setUser(JSON.parse(storedUser));
+          } catch (e) {
+              console.error("Failed to parse user", e);
+          }
+      }
+  }, []);
+
+  // Load saved items when user changes (switch context)
+  const [savedIdentities, setSavedIdentities] = useState<IdentityIdea[]>([]);
+
+  useEffect(() => {
+      const storageKey = user ? `namer_saved_ids_${user.email}` : 'namer_saved_ids_guest';
+      try {
+          const saved = localStorage.getItem(storageKey);
+          setSavedIdentities(saved ? JSON.parse(saved) : []);
+      } catch (e) {
+          console.error("Failed to load saved identities", e);
+          setSavedIdentities([]);
+      }
+  }, [user]);
+
+  // Persist saved items to the correct user key whenever they change
+  useEffect(() => {
+      const storageKey = user ? `namer_saved_ids_${user.email}` : 'namer_saved_ids_guest';
+      localStorage.setItem(storageKey, JSON.stringify(savedIdentities));
+  }, [savedIdentities, user]);
+
+  const handleLogin = (email: string, name?: string) => {
+      const newUser: User = {
+          email,
+          name: name || email.split('@')[0],
+      };
+      setUser(newUser);
+      localStorage.setItem('namer_user', JSON.stringify(newUser));
+  };
+
+  const handleLogout = () => {
+      setUser(null);
+      localStorage.removeItem('namer_user');
+      setAppState(AppState.IDLE);
+  };
 
   const toggleSave = (idea: IdentityIdea) => {
     const exists = savedIdentities.find(d => d.handle === idea.handle);
@@ -68,10 +105,19 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-violet-500/30">
       <Header 
+        user={user}
         onLogoClick={handleLogoClick}
         onSavedClick={() => setAppState(AppState.SAVED)}
+        onLoginClick={() => setIsAuthModalOpen(true)}
+        onLogoutClick={handleLogout}
         savedCount={savedIdentities.length}
         currentView={appState}
+      />
+
+      <AuthModal 
+        isOpen={isAuthModalOpen} 
+        onClose={() => setIsAuthModalOpen(false)}
+        onLogin={handleLogin}
       />
 
       <main className="max-w-6xl mx-auto px-4 pb-20">

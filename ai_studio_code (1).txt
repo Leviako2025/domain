@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { IdentityIdea, IdentityAnalysis } from '../types';
 import { checkIdentityPresence, generateAvatar } from '../services/gemini';
-import { Search, CheckCircle, Loader2, ArrowRight, Twitter, Facebook, Heart, Palette, Copy, Check, AlertTriangle, RefreshCw, Globe, Maximize2, ShoppingBag, Gamepad2, Cpu, User, Sparkles, Monitor, ExternalLink } from 'lucide-react';
+import { Search, CheckCircle, Loader2, ArrowRight, Twitter, Facebook, Heart, Palette, Copy, Check, AlertTriangle, RefreshCw, Globe, Maximize2, ShoppingBag, Gamepad2, Cpu, User, Sparkles } from 'lucide-react';
 
 interface Props {
   idea: IdentityIdea;
@@ -40,7 +39,7 @@ const DomainCard: React.FC<Props> = ({ idea, isSaved, onToggleSave }) => {
       const url = await generateAvatar(idea.handle, idea.vibe, idea.category);
       setLogoUrl(url);
     } catch (error) {
-      console.error("Site preview generation failed", error);
+      console.error("Logo generation failed", error);
     } finally {
       setIsGeneratingLogo(false);
     }
@@ -66,27 +65,16 @@ const DomainCard: React.FC<Props> = ({ idea, isSaved, onToggleSave }) => {
   };
 
   const getCategoryIcon = (category: string) => {
-    const c = (category || '').toLowerCase();
-    if (c === 'commerce') return <ShoppingBag className="w-3.5 h-3.5" />;
-    if (c === 'gaming') return <Gamepad2 className="w-3.5 h-3.5" />;
-    if (c === 'tech') return <Cpu className="w-3.5 h-3.5" />;
-    if (c === 'personal') return <User className="w-3.5 h-3.5" />;
-    if (c === 'creative') return <Palette className="w-3.5 h-3.5" />;
-    return <Sparkles className="w-3.5 h-3.5" />;
-  };
-
-  const getCategoryIconLarge = (category: string) => {
-    const c = (category || '').toLowerCase();
+    const c = category.toLowerCase();
     if (c === 'commerce') return <ShoppingBag className="w-12 h-12 text-white/50 group-hover:text-white/80 transition-colors" />;
     if (c === 'gaming') return <Gamepad2 className="w-12 h-12 text-white/50 group-hover:text-white/80 transition-colors" />;
     if (c === 'tech') return <Cpu className="w-12 h-12 text-white/50 group-hover:text-white/80 transition-colors" />;
     if (c === 'personal') return <User className="w-12 h-12 text-white/50 group-hover:text-white/80 transition-colors" />;
-    if (c === 'creative') return <Palette className="w-12 h-12 text-white/50 group-hover:text-white/80 transition-colors" />;
     return <Sparkles className="w-12 h-12 text-white/50 group-hover:text-white/80 transition-colors" />;
   };
 
   const getPlaceholderGradient = (category: string) => {
-    const c = (category || '').toLowerCase();
+    const c = category.toLowerCase();
     if (c === 'commerce') return 'from-emerald-900/40 via-slate-800 to-slate-900';
     if (c === 'gaming') return 'from-purple-900/40 via-slate-800 to-slate-900';
     if (c === 'tech') return 'from-blue-900/40 via-slate-800 to-slate-900';
@@ -94,11 +82,9 @@ const DomainCard: React.FC<Props> = ({ idea, isSaved, onToggleSave }) => {
     return 'from-slate-800 via-slate-800 to-slate-900';
   };
 
-  const shareText = `Check out this domain idea I found on Namer.ai: ${fullHandle} (${idea.category}) - ${idea.explanation}`;
+  const shareText = `Check out this idea I found on Namer.ai: ${fullHandle} (${idea.category}) - ${idea.explanation}`;
   const shareUrl = "https://namer.ai"; 
-  
-  // Determine main status based on TLD availability (defaults to the specific extension of the handle if checked)
-  const isMainTaken = analysis?.takenOn.includes(fullHandle);
+  const isDotComTaken = analysis?.takenOn.some(s => s.toLowerCase().includes('.com') && !s.toLowerCase().includes('/'));
 
   return (
     <div className="group relative bg-slate-900 border border-slate-800 hover:border-violet-500/50 rounded-2xl p-6 transition-all duration-300 hover:shadow-2xl hover:shadow-violet-500/10 hover:-translate-y-1 overflow-hidden flex flex-col h-full">
@@ -107,8 +93,7 @@ const DomainCard: React.FC<Props> = ({ idea, isSaved, onToggleSave }) => {
       <div className="relative z-10 flex-1">
         <div className="flex justify-between items-start mb-4">
           <div className="flex gap-2">
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase bg-white/5 text-slate-400 border border-white/5">
-              {getCategoryIcon(idea.category)}
+            <span className="px-2 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase bg-white/5 text-slate-400 border border-white/5">
               {idea.category}
             </span>
             <span className={`px-2 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase border ${
@@ -130,6 +115,12 @@ const DomainCard: React.FC<Props> = ({ idea, isSaved, onToggleSave }) => {
           </button>
         </div>
 
+        <div className="flex gap-1 mb-4">
+            {[...Array(10)].map((_, i) => (
+                <div key={i} className={`w-1 h-1 rounded-full ${i < idea.availabilityScore ? 'bg-violet-500' : 'bg-slate-800'}`} />
+            ))}
+        </div>
+
         <div className="flex items-center gap-2 mb-1">
           <h3 className="text-2xl font-bold text-white tracking-tight truncate">
             {idea.handle}
@@ -137,7 +128,7 @@ const DomainCard: React.FC<Props> = ({ idea, isSaved, onToggleSave }) => {
           <button
             onClick={handleCopy}
             className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/10 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
-            title="Copy domain"
+            title="Copy handle"
           >
             {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
           </button>
@@ -147,48 +138,39 @@ const DomainCard: React.FC<Props> = ({ idea, isSaved, onToggleSave }) => {
           {idea.explanation}
         </p>
 
-        {/* Browser-style Website Preview Window */}
+        {/* Brand Visual Section: Rounded Square for "App/Brand" feel */}
         <div 
           onClick={handleAvatarClick}
-          className={`mb-6 w-full aspect-video mx-auto overflow-hidden rounded-lg border border-slate-700 shadow-2xl flex flex-col relative group-hover:border-violet-500/30 transition-colors bg-slate-900 cursor-pointer`}
-          title={logoUrl ? "View design" : "Generating preview..."}
+          className={`mb-6 rounded-2xl w-full aspect-video sm:aspect-[2/1] mx-auto overflow-hidden border-2 border-slate-800 shadow-lg flex items-center justify-center relative group-hover:border-violet-500/30 transition-colors bg-gradient-to-br ${getPlaceholderGradient(idea.category)} cursor-pointer`}
+          title={logoUrl ? "View full image" : "Generate brand visual"}
         >
-           {/* Fake Browser Header */}
-           <div className="h-6 bg-slate-800 border-b border-slate-700 flex items-center px-3 gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-red-500/50"></div>
-              <div className="w-2 h-2 rounded-full bg-yellow-500/50"></div>
-              <div className="w-2 h-2 rounded-full bg-green-500/50"></div>
-              <div className="ml-2 flex-1 bg-slate-900/50 h-3 rounded-sm"></div>
-           </div>
-
-           {/* Preview Content */}
-           <div className={`flex-1 relative flex items-center justify-center bg-gradient-to-br ${getPlaceholderGradient(idea.category)}`}>
-             {logoUrl ? (
-                <>
-                  <img src={logoUrl} alt={`${idea.handle} website design`} className="w-full h-full object-cover animate-fade-in" />
-                  <div className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
-                    <Maximize2 className="w-8 h-8 text-white drop-shadow-lg" />
-                  </div>
-                </>
-             ) : (
-                <div className="flex flex-col items-center justify-center">
-                   <div className="mb-2 transform group-hover:scale-110 transition-transform duration-300">
-                      {getCategoryIconLarge(idea.category)}
-                   </div>
-                   <span className="text-sm font-medium text-white/30 uppercase select-none">
-                      Generating {idea.category} Site...
-                   </span>
+           {logoUrl ? (
+              <>
+                <img src={logoUrl} alt={`${idea.handle} logo`} className="w-full h-full object-cover animate-fade-in" />
+                <div className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
+                  <Maximize2 className="w-8 h-8 text-white drop-shadow-lg" />
                 </div>
-             )}
-             {isGeneratingLogo && (
-               <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm z-10 cursor-default" onClick={(e) => e.stopPropagation()}>
-                 <div className="flex flex-col items-center gap-2">
-                   <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
-                   <span className="text-xs text-violet-200 font-medium">Building Site Preview...</span>
+              </>
+           ) : (
+              <div className="flex flex-col items-center justify-center">
+                 {/* Show Category Icon + Text Placeholder */}
+                 <div className="mb-2 transform group-hover:scale-110 transition-transform duration-300">
+                    {getCategoryIcon(idea.category)}
                  </div>
+                 <span className="text-2xl font-bold text-white/20 uppercase select-none group-hover:text-white/40 transition-colors">
+                    {idea.handle.substring(0, 2)}
+                 </span>
+                 {!isGeneratingLogo && <Palette className="w-4 h-4 mt-2 text-white/30 opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-4 right-4" />}
+              </div>
+           )}
+           {isGeneratingLogo && (
+             <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm z-10 cursor-default" onClick={(e) => e.stopPropagation()}>
+               <div className="flex flex-col items-center gap-2">
+                 <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+                 <span className="text-xs text-violet-200 font-medium">Designing...</span>
                </div>
-             )}
-           </div>
+             </div>
+           )}
         </div>
 
         <div className="flex flex-col gap-3">
@@ -206,75 +188,87 @@ const DomainCard: React.FC<Props> = ({ idea, isSaved, onToggleSave }) => {
                 <div className="absolute inset-0 bg-violet-500/10 animate-pulse" />
               )}
               {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-              <span>{isAnalyzing ? 'Checking Availability...' : 'Check Availability'}</span>
+              <span>{isAnalyzing ? 'Check Availability' : 'Check Availability'}</span>
             </button>
           )}
 
           {analysis && (
             <div className="bg-slate-950/60 rounded-xl p-4 border border-slate-800 animate-fade-in text-left relative shadow-inner">
-               <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                     <CheckCircle className="w-4 h-4 text-violet-400" />
-                     <span className="text-sm font-bold text-violet-100">Analysis Complete</span>
-                  </div>
-                  <button 
+              <div className="flex items-center justify-between mb-3 border-b border-slate-800/50 pb-2">
+                 <div className="flex items-center gap-2">
+                    {analysis.takenOn.length > 0 ? (
+                      <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    )}
+                    <span className={`text-sm font-semibold ${analysis.takenOn.length > 0 ? 'text-yellow-400' : 'text-green-400'}`}>
+                      {analysis.takenOn.length > 0 ? 'Partial Match' : 'Available'}
+                    </span>
+                 </div>
+                 <button 
                    onClick={() => handleAnalyze(true)}
                    className="p-1.5 rounded-lg hover:bg-white/10 text-slate-500 hover:text-white transition-colors"
-                   title="Refresh check"
+                   title="Refresh availability check"
                  >
                    <RefreshCw className="w-3.5 h-3.5" />
                  </button>
-               </div>
+              </div>
 
-               {/* TLD Status Grid */}
-               {analysis.tldStatus && (
-                 <div className="grid grid-cols-3 gap-2 mb-3">
-                   {['.com', '.io', '.ai', '.co', '.app'].map((tld) => {
-                     const status = analysis.tldStatus?.[tld] || 'UNKNOWN';
-                     const isAvail = status === 'AVAILABLE';
-                     return (
-                       <div key={tld} className={`flex items-center justify-between px-2 py-1.5 rounded border text-[10px] font-mono ${
-                         isAvail 
-                           ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300' 
-                           : status === 'TAKEN'
-                           ? 'bg-red-500/10 border-red-500/20 text-red-300'
-                           : 'bg-slate-800 border-slate-700 text-slate-400'
-                       }`}>
-                         <span>{tld.toUpperCase()}</span>
-                         <span>{isAvail ? 'FREE' : status === 'TAKEN' ? 'TAKEN' : '?'}</span>
-                       </div>
-                     );
-                   })}
-                 </div>
-               )}
-               
-               <p className="text-xs text-slate-300 leading-relaxed mb-3">{analysis.summary}</p>
-
-               {(analysis.profileTitle || analysis.profileDescription) && (
+              <div className="flex items-center justify-between mb-3 bg-slate-900/50 px-2 py-1.5 rounded border border-slate-800/50">
+                  <div className="flex items-center gap-2">
+                     <Globe className="w-3.5 h-3.5 text-slate-400" />
+                     <span className="text-xs font-mono text-slate-400">.COM</span>
+                  </div>
+                  {isDotComTaken ? (
+                      <span className="text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded border border-red-400/20">TAKEN</span>
+                  ) : (
+                      <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded border border-emerald-400/20">AVAILABLE</span>
+                  )}
+              </div>
+              
+              <p className="text-xs text-slate-300 leading-relaxed mb-3">{analysis.summary}</p>
+              
+              {(analysis.profileTitle || analysis.profileDescription) && (
                  <div className="mb-3 p-2.5 bg-slate-900 rounded-lg border-l-2 border-violet-500/50 shadow-sm">
-                    {analysis.profileTitle && <p className="text-xs font-semibold text-slate-200 truncate mb-1">{analysis.profileTitle}</p>}
-                    {analysis.profileDescription && <p className="text-[10px] text-slate-400 italic line-clamp-2">"{analysis.profileDescription}"</p>}
+                    {analysis.profileTitle && (
+                      <div className="flex items-start gap-1.5 mb-1">
+                         <Globe className="w-3 h-3 text-violet-400 mt-0.5 flex-shrink-0" />
+                         <p className="text-xs font-semibold text-slate-200 truncate">{analysis.profileTitle}</p>
+                      </div>
+                    )}
+                    {analysis.profileDescription && (
+                       <p className="text-[10px] text-slate-400 leading-tight line-clamp-3 pl-4 italic">
+                         "{analysis.profileDescription}"
+                       </p>
+                    )}
                  </div>
-               )}
+              )}
+
+              {analysis.takenOn.length > 0 && (
+                 <div className="flex flex-wrap gap-1.5 mt-2">
+                    {analysis.takenOn.map((platform) => (
+                        <span key={platform} className="px-2 py-1 bg-slate-800 text-slate-300 text-[10px] rounded-md border border-slate-700/50">
+                            {platform}
+                        </span>
+                    ))}
+                 </div>
+              )}
             </div>
           )}
 
-          {/* Primary Call To Action: Register & Build */}
           <a
-            href={`https://www.namecheap.com/domains/registration/results/?domain=${fullHandle}`}
+            href={`https://www.google.com/search?q="${fullHandle}"`}
             target="_blank"
             rel="noreferrer"
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-lg shadow-violet-500/20 transition-all text-sm font-bold transform active:scale-95"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white hover:border-slate-600 transition-all text-sm font-medium"
           >
-             Register & Build Site <ExternalLink className="w-4 h-4" />
+             Search Google <ArrowRight className="w-3 h-3" />
           </a>
         </div>
       </div>
 
       <div className="pt-4 mt-6 border-t border-slate-800/50 flex items-center justify-between px-1">
-        <span className="text-xs font-medium text-slate-500 flex items-center gap-1">
-           <Monitor className="w-3 h-3" /> Instant Website Ready
-        </span>
+        <span className="text-xs font-medium text-slate-500">Share</span>
         <div className="flex items-center gap-3">
           <a 
             href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`}
