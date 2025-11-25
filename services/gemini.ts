@@ -36,37 +36,37 @@ export const generateIdentities = async (description: string): Promise<IdentityI
     - availabilityScore (1-10)
   `;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            handle: { type: Type.STRING, description: "The full domain name (e.g. 'PixelMarket.shop')" },
-            style: { type: Type.STRING, description: "The brand style" },
-            category: { type: Type.STRING, description: "Category: Commerce, Gaming, Tech, Creative, Personal, Other" },
-            explanation: { type: Type.STRING, description: "Why this domain works" },
-            vibe: { type: Type.STRING, description: "The personality" },
-            availabilityScore: { type: Type.INTEGER, description: "Uniqueness score 1-10" }
-          },
-          required: ["handle", "style", "category", "explanation", "vibe", "availabilityScore"]
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              handle: { type: Type.STRING, description: "The full domain name (e.g. 'PixelMarket.shop')" },
+              style: { type: Type.STRING, description: "The brand style" },
+              category: { type: Type.STRING, description: "Category: Commerce, Gaming, Tech, Creative, Personal, Other" },
+              explanation: { type: Type.STRING, description: "Why this domain works" },
+              vibe: { type: Type.STRING, description: "The personality" },
+              availabilityScore: { type: Type.INTEGER, description: "Uniqueness score 1-10" }
+            },
+            required: ["handle", "style", "category", "explanation", "vibe", "availabilityScore"]
+          }
         }
       }
-    }
-  });
+    });
 
-  if (response.text) {
-    try {
+    if (response.text) {
       const data = JSON.parse(response.text);
       return data as IdentityIdea[];
-    } catch (e) {
-      console.error("Failed to parse JSON", e);
-      throw new Error("AI response was not valid JSON");
     }
+  } catch (e) {
+    console.error("Identity generation failed", e);
+    throw new Error("Failed to generate ideas. Please try again.");
   }
   
   throw new Error("No response from AI");
@@ -79,7 +79,7 @@ export const checkIdentityPresence = async (handle: string): Promise<IdentityAna
   const nameOnly = domainParts[0]; // e.g. "urbanflow" from "urbanflow.shop"
   
   const platforms = ["twitter.com", "instagram.com", "tiktok.com", "facebook.com"];
-  const tldsToCheck = [".com", ".io", ".ai", ".co", ".app"];
+  const tldsToCheck = [".com", ".net", ".io", ".ai", ".co", ".app"];
   
   // Construct a search query that looks for the specific generated handle, common TLD variations, and social profiles
   const searchQuery = [
@@ -88,60 +88,57 @@ export const checkIdentityPresence = async (handle: string): Promise<IdentityAna
     ...platforms.map(p => `site:${p}/${nameOnly}`) // Check socials
   ].join(" OR ");
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: `
-      Perform a comprehensive availability check for the brand name "${nameOnly}" and the specific domain "${handle}".
-      
-      Google Search Query used:
-      ${searchQuery}
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `
+        Perform a comprehensive availability check for the brand name "${nameOnly}" and the specific domain "${handle}".
+        
+        Google Search Query used:
+        ${searchQuery}
 
-      Analyze the search results to determine:
-      1. Is ${nameOnly}.com taken (active website)?
-      2. Is ${nameOnly}.io taken?
-      3. Is ${nameOnly}.ai taken?
-      4. Is ${nameOnly}.co taken?
-      5. Is ${nameOnly}.app taken?
-      6. Are there existing social media profiles for "${nameOnly}"?
+        Analyze the search results to determine:
+        1. Is ${nameOnly}.com taken (active website)?
+        2. Is ${nameOnly}.net taken?
+        3. Is ${nameOnly}.io taken?
+        4. Is ${nameOnly}.ai taken?
+        5. Is ${nameOnly}.co taken?
+        6. Is ${nameOnly}.app taken?
+        7. Are there existing social media profiles for "${nameOnly}"?
 
-      If a website is found, extract its title and a brief description.
-      
-      Return a JSON object.
-    `,
-    config: {
-      tools: [{ googleSearch: {} }],
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          socialsFound: { 
-            type: Type.ARRAY, 
-            items: { type: Type.STRING },
-            description: "List of social platforms where the name is found (e.g. ['Twitter', 'Instagram'])"
+        If a website is found, extract its title and a brief description.
+        
+        CRITICAL: Return ONLY a valid JSON object. Do not include markdown formatting like \`\`\`json.
+        Structure:
+        {
+          "socialsFound": ["Twitter", "Instagram"],
+          "tldStatus": {
+            ".com": "AVAILABLE" | "TAKEN" | "UNKNOWN",
+            ".net": "AVAILABLE" | "TAKEN" | "UNKNOWN",
+            ".io": "AVAILABLE" | "TAKEN" | "UNKNOWN",
+            ".ai": "AVAILABLE" | "TAKEN" | "UNKNOWN",
+            ".co": "AVAILABLE" | "TAKEN" | "UNKNOWN",
+            ".app": "AVAILABLE" | "TAKEN" | "UNKNOWN"
           },
-          tldStatus: {
-            type: Type.OBJECT,
-            properties: {
-              ".com": { type: Type.STRING, enum: ["AVAILABLE", "TAKEN", "UNKNOWN"] },
-              ".io": { type: Type.STRING, enum: ["AVAILABLE", "TAKEN", "UNKNOWN"] },
-              ".ai": { type: Type.STRING, enum: ["AVAILABLE", "TAKEN", "UNKNOWN"] },
-              ".co": { type: Type.STRING, enum: ["AVAILABLE", "TAKEN", "UNKNOWN"] },
-              ".app": { type: Type.STRING, enum: ["AVAILABLE", "TAKEN", "UNKNOWN"] }
-            },
-            required: [".com", ".io", ".ai", ".co", ".app"]
-          },
-          summary: { type: Type.STRING, description: "A brief text summary of the availability." },
-          websiteTitle: { type: Type.STRING, description: "Title of the main conflicting website if found, else N/A" },
-          websiteDescription: { type: Type.STRING, description: "Description of the main conflicting website if found, else N/A" }
-        },
-        required: ["socialsFound", "tldStatus", "summary"]
-      }
-    },
-  });
+          "summary": "Brief text summary.",
+          "websiteTitle": "Title if found or N/A",
+          "websiteDescription": "Description if found or N/A"
+        }
+      `,
+      config: {
+        tools: [{ googleSearch: {} }],
+        // Note: responseMimeType: "application/json" is NOT supported with googleSearch tools in some models,
+        // so we request JSON via the prompt text instead.
+      },
+    });
 
-  if (response.text) {
+    const text = response.text || "";
+    
+    // Clean up markdown if present (e.g. ```json ... ```)
+    const jsonString = text.replace(/```json\n?|```/g, '').trim();
+    
     try {
-      const data = JSON.parse(response.text);
+      const data = JSON.parse(jsonString);
       return {
         handle,
         takenOn: data.socialsFound || [],
@@ -150,21 +147,28 @@ export const checkIdentityPresence = async (handle: string): Promise<IdentityAna
         profileDescription: data.websiteDescription !== "N/A" ? data.websiteDescription : undefined,
         tldStatus: data.tldStatus
       };
-    } catch (e) {
-      console.error("Failed to parse analysis JSON", e);
+    } catch (parseError) {
+      console.error("Failed to parse analysis JSON", parseError, jsonString);
+      // Fallback to a simpler text analysis if JSON parsing fails
+      return {
+        handle,
+        takenOn: [],
+        summary: "Could not verify detailed availability. Please check manually.",
+        tldStatus: {}
+      };
     }
+  } catch (e) {
+    console.error("Availability check failed", e);
+    return {
+      handle,
+      takenOn: [],
+      summary: "Availability check failed due to network or API limits.",
+      tldStatus: {}
+    };
   }
-
-  // Fallback if JSON parsing fails (should rarely happen with structured output)
-  return {
-    handle,
-    takenOn: [],
-    summary: "Could not verify availability details.",
-    tldStatus: {}
-  };
 };
 
-export const generateAvatar = async (handle: string, vibe: string, category: string = 'Other'): Promise<string> => {
+export const generateAvatar = async (handle: string, vibe: string, category: string = 'Other'): Promise<string | null> => {
   const ai = getAIClient();
   
   let visualContext = "";
@@ -189,23 +193,28 @@ export const generateAvatar = async (handle: string, vibe: string, category: str
       visualContext = "Professional small business website landing page, hero image, clear value proposition, modern web design.";
   }
 
-  const response = await ai.models.generateImages({
-    model: 'imagen-4.0-generate-001',
-    prompt: `High-fidelity website UI design mockup for a brand named "${handle}". 
-             Category: ${category}.
-             Visual Context: ${visualContext}.
-             Vibe: ${vibe}.
-             Style: Professional web design, Dribbble trending, high resolution, photorealistic UI. 
-             The image should look like a screenshot of a browser window showing the website.`,
-    config: {
-      numberOfImages: 1,
-      aspectRatio: '16:9', // Widescreen for website preview
-      outputMimeType: 'image/jpeg',
-    },
-  });
+  try {
+    const response = await ai.models.generateImages({
+      model: 'imagen-4.0-generate-001',
+      prompt: `High-fidelity website UI design mockup for a brand named "${handle}". 
+               Category: ${category}.
+               Visual Context: ${visualContext}.
+               Vibe: ${vibe}.
+               Style: Professional web design, Dribbble trending, high resolution, photorealistic UI. 
+               The image should look like a screenshot of a browser window showing the website.`,
+      config: {
+        numberOfImages: 1,
+        aspectRatio: '16:9', // Widescreen for website preview
+        outputMimeType: 'image/jpeg',
+      },
+    });
 
-  const base64 = response.generatedImages?.[0]?.image?.imageBytes;
-  if (!base64) throw new Error("Failed to generate website preview");
-  
-  return `data:image/jpeg;base64,${base64}`;
+    const base64 = response.generatedImages?.[0]?.image?.imageBytes;
+    if (!base64) return null;
+    
+    return `data:image/jpeg;base64,${base64}`;
+  } catch (e) {
+    console.warn("Website preview generation failed (likely quota exceeded or filtered). Falling back to placeholder.", e);
+    return null; 
+  }
 };
